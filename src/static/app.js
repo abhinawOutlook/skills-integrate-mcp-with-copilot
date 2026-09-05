@@ -3,6 +3,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const loginButton = document.getElementById("login-button");
+  const logoutButton = document.getElementById("logout-button");
+  const signupContainer = document.getElementById("signup-container");
+  const loginContainer = document.getElementById("login-container");
+  const loginForm = document.getElementById("login-form");
+  const loginMessage = document.getElementById("login-message");
+  let authorizationHeader = null;
+
+  function setLoggedIn(isLoggedIn) {
+    signupContainer.classList.toggle("hidden", !isLoggedIn);
+    loginButton.classList.toggle("hidden", isLoggedIn);
+    logoutButton.classList.toggle("hidden", !isLoggedIn);
+    document.querySelectorAll(".delete-btn").forEach((button) => {
+      button.classList.toggle("hidden", !isLoggedIn);
+    });
+  }
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -30,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${details.participants
                   .map(
                     (email) =>
-                      `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
+                      `<li><span class="participant-email">${email}</span><button class="delete-btn hidden" data-activity="${name}" data-email="${email}">Remove</button></li>`
                   )
                   .join("")}
               </ul>
@@ -60,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".delete-btn").forEach((button) => {
         button.addEventListener("click", handleUnregister);
       });
+      setLoggedIn(Boolean(authorizationHeader));
     } catch (error) {
       activitiesList.innerHTML =
         "<p>Failed to load activities. Please try again later.</p>";
@@ -80,6 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/unregister?email=${encodeURIComponent(email)}`,
         {
           method: "DELETE",
+          headers: { Authorization: authorizationHeader },
         }
       );
 
@@ -124,6 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/signup?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
+          headers: { Authorization: authorizationHeader },
         }
       );
 
@@ -155,6 +174,43 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  loginButton.addEventListener("click", () => {
+    loginContainer.classList.remove("hidden");
+    loginButton.classList.add("hidden");
+  });
+
+  logoutButton.addEventListener("click", () => {
+    authorizationHeader = null;
+    setLoggedIn(false);
+    fetchActivities();
+  });
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+    authorizationHeader = `Basic ${btoa(`${username}:${password}`)}`;
+
+    const response = await fetch("/auth/teacher", {
+      method: "GET",
+      headers: { Authorization: authorizationHeader },
+    });
+
+    if (response.ok) {
+      setLoggedIn(true);
+      loginContainer.classList.add("hidden");
+      loginForm.reset();
+      fetchActivities();
+      return;
+    }
+
+    authorizationHeader = null;
+    loginMessage.textContent = "Invalid teacher username or password.";
+    loginMessage.className = "error";
+    loginMessage.classList.remove("hidden");
+  });
+
   // Initialize app
+  setLoggedIn(false);
   fetchActivities();
 });
